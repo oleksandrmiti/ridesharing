@@ -1,5 +1,6 @@
 import type { StaticScreenProps } from '@react-navigation/native';
-import { View, Text} from 'react-native';
+import { View, Text } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 type Props = StaticScreenProps<{
   name: string;
@@ -7,9 +8,11 @@ type Props = StaticScreenProps<{
 
 const Timetable = ( ) => {
     return (
-      <View>
-        <Text>Timetable Screen</Text>
-      </View>
+      <SafeAreaView style={{ flex: 1, padding: 16, gap: 12 }}>
+        <View>
+          <Text>Timetable Screen</Text>
+        </View>
+      </SafeAreaView>
     );
 };
 

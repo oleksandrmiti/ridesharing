@@ -6,9 +6,9 @@ import { useEffect, useMemo } from 'react';
 import 'react-native-gesture-handler';
 import Navigation from './navigation';
 import { auth } from 'utils/firebase';
-import { onAuthStateChanged } from 'firebase/auth';
+import { onIdTokenChanged } from 'firebase/auth';
 import { useAuthStore } from 'store/authStore'
-import { Gesture, GestureHandlerRootView } from 'react-native-gesture-handler';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 export default function App() {
   const colorScheme = useColorScheme();
@@ -18,7 +18,7 @@ export default function App() {
   const setInitializing = useAuthStore((state) => state.setInitializing);
   
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
+    const unsubscribe = onIdTokenChanged(auth, (user) => {
       setUser(user);
       setInitializing(false);
     });
@@ -27,7 +27,7 @@ export default function App() {
 
   return (
   <GestureHandlerRootView style={{ flex: 1 }}>
-    <Navigation theme={theme} />;
+    <Navigation theme={theme} />
   </GestureHandlerRootView>
   );
 }

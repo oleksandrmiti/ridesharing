@@ -3,8 +3,11 @@ import { createStackNavigator } from '@react-navigation/stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useAuthStore } from '../store/authStore';
+
 import SignIn from '../screens/auth/signin';
 import SignUp from '../screens/auth/signup';
+import VerifyEmailScreen from '../screens/auth/verifyEmail';
+
 import Main from '../screens/app/main';
 import Timetable from '../screens/app/timetable';
 import AppSettings from '../screens/app/settings';
@@ -17,8 +20,15 @@ const AuthStack = createStackNavigator({
     SignUp: { screen: SignUp },
   },
 });
-
 const AuthNavigation = createStaticNavigation(AuthStack);
+
+const VerifyStack = createStackNavigator({
+  screenOptions: { headerShown: false },
+  screens: {
+    VerifyEmail: { screen: VerifyEmailScreen },
+  },
+});
+const VerifyNavigation = createStaticNavigation(VerifyStack);
 
 const Tabs = createBottomTabNavigator({
   screenOptions: ({ route }) => ({
@@ -42,7 +52,6 @@ const Tabs = createBottomTabNavigator({
     UserPreferences: { screen: UserPreferences, options: { title: 'Profile' } },
   },
 });
-
 const AppNavigation = createStaticNavigation(Tabs);
 
 type RootNavigatorParamList = StaticParamList<typeof AuthStack>;
@@ -61,5 +70,9 @@ export default function RootNavigation(props: any){
     return null;
   }
 
-  return user ? <AppNavigation {...props} /> : <AuthNavigation {...props} />;
+  if (!user) return <AuthNavigation {...props} />;
+
+  if (!user.emailVerified) return <VerifyNavigation {...props} />;
+
+  return <AppNavigation {...props} />;
 };
