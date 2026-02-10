@@ -7,6 +7,7 @@ import { useAuthStore } from '../store/authStore';
 import SignIn from '../screens/auth/signin';
 import SignUp from '../screens/auth/signup';
 import VerifyEmailScreen from '../screens/auth/verifyEmail';
+import OnboardingScreen from '../screens/auth/onboarding';
 
 import Main from '../screens/app/main';
 import Timetable from '../screens/app/timetable';
@@ -29,6 +30,14 @@ const VerifyStack = createStackNavigator({
   },
 });
 const VerifyNavigation = createStaticNavigation(VerifyStack);
+
+const OnboardingStack = createStackNavigator({
+  screenOptions: { headerShown: false },
+  screens: {
+    Onboarding: { screen: OnboardingScreen },
+  },
+});
+const OnboardingNavigation = createStaticNavigation(OnboardingStack);
 
 const Tabs = createBottomTabNavigator({
   screenOptions: ({ route }) => ({
@@ -64,7 +73,7 @@ declare global {
 }
 
 export default function RootNavigation(props: any){
-  const { user, initializing } = useAuthStore();
+  const { user, initializing, profileCompleted} = useAuthStore();
 
   if (initializing){
     return null;
@@ -74,5 +83,9 @@ export default function RootNavigation(props: any){
 
   if (!user.emailVerified) return <VerifyNavigation {...props} />;
 
+  if (profileCompleted === false) return <OnboardingNavigation {...props} />;
+
+  if (profileCompleted === null) return null;
+  
   return <AppNavigation {...props} />;
 };

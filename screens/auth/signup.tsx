@@ -2,8 +2,10 @@ import React, { useState } from 'react';
 import { View, Text, TextInput, Pressable } from 'react-native';
 import { createUserWithEmailAndPassword, sendEmailVerification } from 'firebase/auth';
 import { useNavigation } from '@react-navigation/native';
-import { auth } from '../../utils/firebase';
+import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { auth, db } from '../../utils/firebase';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { create } from 'zustand';
 
 type AuthRoles = {
   SignIn: undefined;
@@ -29,8 +31,21 @@ export default function SignUp() {
 
       const cred = await createUserWithEmailAndPassword(auth, email.trim(), password);
 
+      await setDoc(doc(db, 'users', cred.user.uid), {
+        uid: cred.user.uid,
+        email: cred.user.email,
+        phone: '',
+        displayName: '',
+        course: '',
+        year: null,
+        profileComplete: false,
+        preferredLocations: [],
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+        isActive: true
+      });
+
       await sendEmailVerification(cred.user);
-      
       navigation.goBack();
     } catch (e: any) {
       setError(e?.message ?? 'Failed to sign up');

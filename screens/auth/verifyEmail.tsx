@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, Pressable, Alert } from 'react-native';
 import { auth } from '../../utils/firebase';
-import { sendEmailVerification, reload, signOut, getIdToken } from 'firebase/auth';
+import { sendEmailVerification, reload, signOut } from 'firebase/auth';
 
 export default function VerifyEmailScreen() {
   const [busy, setBusy] = useState(false);
