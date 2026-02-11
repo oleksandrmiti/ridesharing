@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, Pressable, Alert } from 'react-native';
 import { auth } from '../../utils/firebase';
 import { sendEmailVerification, reload, signOut } from 'firebase/auth';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function VerifyEmailScreen() {
   const [busy, setBusy] = useState(false);
@@ -57,6 +58,7 @@ export default function VerifyEmailScreen() {
   const email = auth.currentUser?.email ?? '';
 
   return (
+    <SafeAreaView style={{ flex: 1, padding: 16, gap: 12 }}>
     <View style={{ padding: 16, gap: 12 }}>
       <Text style={{ fontSize: 22, fontWeight: '600' }}>Verify your email</Text>
 
@@ -96,5 +98,6 @@ export default function VerifyEmailScreen() {
         <Text>Sign out</Text>
       </Pressable>
     </View>
+    </SafeAreaView>
   );
 }

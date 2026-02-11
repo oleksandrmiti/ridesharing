@@ -18,7 +18,6 @@ const AppSettings = ( ) => {
       <SafeAreaView style={{ flex: 1, padding: 16, gap: 12 }}>
         <HorizontalBox title="Logout" buttonText="Logout" iconName={"log-out"} iconColor={"red"} onPress={onLogout} />
       </SafeAreaView>
-      
     );
 };
 

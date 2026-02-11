@@ -3,6 +3,7 @@ import { View, Text, TextInput, Pressable, Alert } from 'react-native';
 import { auth, db } from '../../utils/firebase';
 import { signOut } from 'firebase/auth';
 import { doc, getDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function OnboardingScreen() {
   const uid = auth.currentUser?.uid;
@@ -69,6 +70,7 @@ export default function OnboardingScreen() {
   if (loading) return null;
 
   return (
+    <SafeAreaView style={{ flex: 1, padding: 16, gap: 12 }}>
     <View style={{ padding: 16, gap: 12 }}>
       <Text style={{ fontSize: 22, fontWeight: '600' }}>Finish setup</Text>
 
@@ -106,5 +108,6 @@ export default function OnboardingScreen() {
         <Text>Sign out</Text>
       </Pressable>
     </View>
+    </SafeAreaView>
   );
 } 
