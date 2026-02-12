@@ -30,6 +30,12 @@ export default function App() {
           return;
         }
 
+        if (!user.emailVerified) {
+          setProfileCompleted(null);
+          setInitializing(false);
+          return;
+        }
+
         try {
           const snap = await getDoc(doc(db, 'users', user.uid));
           const completed = snap.exists() ? !!(snap.data() as any).profileCompleted : false;

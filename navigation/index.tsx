@@ -81,6 +81,7 @@ export default function RootNavigation(props: any){
 
   if (!user) return <AuthNavigation {...props} />;
 
+  console.log('User email verified:', user.emailVerified, 'Profile completed:', profileCompleted);
   if (!user.emailVerified) return <VerifyNavigation {...props} />;
 
   if (profileCompleted === false) return <OnboardingNavigation {...props} />;

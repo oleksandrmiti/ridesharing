@@ -3,11 +3,13 @@ import { View, Text, Pressable, Alert } from 'react-native';
 import { auth } from '../../utils/firebase';
 import { sendEmailVerification, reload, signOut } from 'firebase/auth';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useAuthStore } from '../../store/authStore';
 
 export default function VerifyEmailScreen() {
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
-
+  const setUser = useAuthStore((s) => s.setUser);
+  
   const onResend = async () => {
     setMsg(null);
 
@@ -34,6 +36,8 @@ export default function VerifyEmailScreen() {
     try {
       setBusy(true);
       await reload(user);
+      setUser(auth.currentUser);
+
       await auth.currentUser?.getIdToken(true);
       if (auth.currentUser?.emailVerified) {
         setMsg('Email verified ✅ You can continue.');

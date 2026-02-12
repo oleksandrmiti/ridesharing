@@ -7,18 +7,18 @@ type AuthState = {
   profileCompleted: boolean | null;
   setUser: (user: User | null) => void;
   setInitializing: (v: boolean) => void;
+  setProfileCompleted: (v: boolean | null) => void;
   isLoggedIn: () => boolean;
   isEmailVerified: () => boolean;
-  setProfileCompleted: (v: boolean | null) => void;
 };
 
-export const useAuthStore = create<AuthState>((set) => ({
+export const useAuthStore = create<AuthState>((set, get) => ({
   user: null,
   initializing: true,
-  profileCompleted: false,
+  profileCompleted: null,
   setUser: (user) => set({ user }),
   setInitializing: (v) => set({ initializing: v }),
+  setProfileCompleted: (v) => set({ profileCompleted: v }),
   isLoggedIn: () => !!get().user,
   isEmailVerified: () => !!get().user?.emailVerified,
-  setProfileCompleted: (v) => set({ profileCompleted: v }),
 }));

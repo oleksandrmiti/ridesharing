@@ -38,7 +38,7 @@ export default function SignUp() {
         displayName: '',
         course: '',
         year: null,
-        profileComplete: false,
+        profileCompleted: false,
         preferredLocations: [],
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
