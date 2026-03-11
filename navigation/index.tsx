@@ -13,6 +13,7 @@ import Main from '../screens/app/main';
 import Timetable from '../screens/app/timetable';
 import AppSettings from '../screens/app/settings';
 import UserPreferences from '../screens/app/userPreferences';
+import RideDetails from '../screens/app/rideDetails';
 
 const AuthStack = createStackNavigator({
   screenOptions: { headerShown: false },
@@ -39,6 +40,14 @@ const OnboardingStack = createStackNavigator({
 });
 const OnboardingNavigation = createStaticNavigation(OnboardingStack);
 
+const MainStack = createStackNavigator({
+  screenOptions: { headerShown: false },
+  screens: {
+    MainHome: { screen: Main },
+    RideDetails: { screen: RideDetails },
+  },
+});
+
 const Tabs = createBottomTabNavigator({
   screenOptions: ({ route }) => ({
     headerShown: false,
@@ -55,7 +64,7 @@ const Tabs = createBottomTabNavigator({
     },
   }),
   screens: {
-    Main: { screen: Main},
+    Main: { screen: MainStack },
     Timetable: { screen: Timetable },
     AppSettings: { screen: AppSettings, options: { title: 'Settings'} },
     UserPreferences: { screen: UserPreferences, options: { title: 'Profile' } },

@@ -78,7 +78,7 @@ export default function SignUp() {
         </Pressable>
 
         <Pressable onPress={() => navigation.goBack()}>
-          <Text>Back to Sign In</Text>
+          <Text>Already have an account? Sign In</Text>
         </Pressable>
     </SafeAreaView>
   );
