@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import MapPickerModal from './MapPickerModal';
+import LocationSelectModal from './LocationSelectModal';
 import { BottomSheetTextInput } from '@gorhom/bottom-sheet';
 import type { GeoLite } from '../store/firestore';
 
@@ -76,6 +77,7 @@ export default function CreateTripSheet({
 
   const [mapOpen, setMapOpen] = useState(false);
   const [pickerMode, setPickerMode] = useState<PickerMode>(null);
+  const [locationSelectOpen, setLocationSelectOpen] = useState(false);
 
   const [from, setFrom] = useState<GeoLite | null>(defaultPickup);
   const [to] = useState<GeoLite | null>(defaultDestination);
@@ -83,6 +85,7 @@ export default function CreateTripSheet({
   const [date, setDate] = useState<Date | null>(new Date());
   const [earliest, setEarliest] = useState<Date | null>(null);
   const [latest, setLatest] = useState<Date | null>(null);
+  const [pickerValue, setPickerValue] = useState<Date>(new Date());
 
   const [seatsTotal, setSeatsTotal] = useState(1);
   const [notes, setNotes] = useState('');
@@ -144,50 +147,62 @@ export default function CreateTripSheet({
     }
   };
 
-  const openDatePicker = () => setPickerMode('date');
-  const openEarliestPicker = () => setPickerMode('earliest');
-  const openLatestPicker = () => setPickerMode('latest');
-
-  const onChangePicker = (_event: any, selected?: Date) => {
-    if (Platform.OS === 'android') {
-      setPickerMode(null);
-    }
-
-    if (!selected) return;
-
-    if (pickerMode === 'date') {
-      const nextDate = selected;
-      setDate(nextDate);
-
-      if (earliest) setEarliest(combineDateAndTime(nextDate, earliest));
-      if (latest) setLatest(combineDateAndTime(nextDate, latest));
-      return;
-    }
-
-    if (!date) return;
-
-    if (pickerMode === 'earliest') {
-      setEarliest(combineDateAndTime(date, selected));
-      return;
-    }
-
-    if (pickerMode === 'latest') {
-      setLatest(combineDateAndTime(date, selected));
-    }
+  const openDatePicker = () => {
+    setPickerValue(date ?? new Date());
+    setPickerMode('date');
   };
 
-  const currentPickerValue = (() => {
-    if (pickerMode === 'date') return date ?? new Date();
-    if (pickerMode === 'earliest') return earliest ?? date ?? new Date();
-    if (pickerMode === 'latest') return latest ?? earliest ?? date ?? new Date();
-    return new Date();
-  })();
+  const openEarliestPicker = () => {
+    setPickerValue(earliest ?? date ?? new Date());
+    setPickerMode('earliest');
+  };
+
+  const openLatestPicker = () => {
+    setPickerValue(latest ?? earliest ?? date ?? new Date());
+    setPickerMode('latest');
+  };
+
+  const applyPickerValue = (selected: Date) => {
+  if (pickerMode === 'date') {
+    const nextDate = selected;
+    setDate(nextDate);
+
+    if (earliest) setEarliest(combineDateAndTime(nextDate, earliest));
+    if (latest) setLatest(combineDateAndTime(nextDate, latest));
+    return;
+  }
+
+  if (!date) return;
+
+  if (pickerMode === 'earliest') {
+    setEarliest(combineDateAndTime(date, selected));
+    return;
+  }
+
+  if (pickerMode === 'latest') {
+    setLatest(combineDateAndTime(date, selected));
+  }
+};
+
+  const onChangePicker = (_event: any, selected?: Date) => {
+    if (!selected) return;
+
+    if (Platform.OS === 'android') {
+      applyPickerValue(selected);
+      setPickerMode(null);
+      return;
+    }
+
+    // iOS: keep temporary value until Done is pressed
+    setPickerValue(selected);
+  };
 
   return (
     <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
     <View style={{ padding: 16, gap: 12 }}>
       <Text style={styles.title}>{title}</Text>
 
+      <Text style={styles.label}>Today I'm...</Text>
       <View style={styles.toggleRow}>
         <Pressable
           onPress={() => setMode('DRIVER_RIDE')}
@@ -226,7 +241,7 @@ export default function CreateTripSheet({
 
       <View style={{ gap: 6 }}>
         <Text style={styles.label}>Location</Text>
-        <Pressable onPress={() => setMapOpen(true)} style={styles.inputButton}>
+        <Pressable onPress={() => setLocationSelectOpen(true)} style={styles.inputButton}>
           <Text style={{ color: from ? '#111' : '#999' }}>
             {from?.label ?? 'Choose starting area'}
           </Text>
@@ -249,14 +264,14 @@ export default function CreateTripSheet({
 
       <View style={styles.timeRow}>
         <View style={{ flex: 1, gap: 6 }}>
-          <Text style={styles.label}>Start time</Text>
+          <Text style={styles.label}>Earlieast arriving</Text>
           <Pressable onPress={openEarliestPicker} style={styles.inputButton}>
             <Text>{formatTime(earliest)}</Text>
           </Pressable>
         </View>
 
         <View style={{ flex: 1, gap: 6 }}>
-          <Text style={styles.label}>End time</Text>
+          <Text style={styles.label}>Latest arriving</Text>
           <Pressable onPress={openLatestPicker} style={styles.inputButton}>
             <Text>{formatTime(latest)}</Text>
           </Pressable>
@@ -265,7 +280,7 @@ export default function CreateTripSheet({
 
       {mode === 'DRIVER_RIDE' ? (
         <View style={{ gap: 8 }}>
-          <Text style={styles.label}>How many seats</Text>
+          <Text style={styles.label}>Seats available</Text>
 
           <View style={styles.seatRow}>
             {[1, 2, 3].map((seat) => (
@@ -290,7 +305,7 @@ export default function CreateTripSheet({
           </View>
 
           <Text style={styles.label}>Notes</Text>
-          <TextInput
+          <BottomSheetTextInput
             value={notes}
             onChangeText={setNotes}
             placeholder="Car / meeting notes"
@@ -356,25 +371,38 @@ export default function CreateTripSheet({
               {pickerMode === 'date'
                 ? 'Select date'
                 : pickerMode === 'earliest'
-                ? 'Select start time'
-                : 'Select end time'}
+                ? 'Select earliest time to arrive'
+                : 'Select latest time to arrive'}
             </Text>
 
             <DateTimePicker
-              value={currentPickerValue}
+              value={pickerValue}
               mode={pickerMode === 'date' ? 'date' : 'time'}
               display={Platform.OS === 'ios' ? 'spinner' : 'default'}
               onChange={onChangePicker}
             />
 
             {Platform.OS === 'ios' && (
-              <Pressable onPress={() => setPickerMode(null)} style={pickerStyles.doneButton}>
+              <Pressable
+                onPress={() => {
+                  applyPickerValue(pickerValue);
+                  setPickerMode(null);
+                }}
+                style={pickerStyles.doneButton}
+              >
                 <Text style={pickerStyles.doneText}>Done</Text>
               </Pressable>
             )}
           </View>
         </View>
       </Modal>
+
+      <LocationSelectModal
+        visible={locationSelectOpen}
+        onClose={() => setLocationSelectOpen(false)}
+        onSelect={(geo) => setFrom(geo)}
+        onOpenMap={() => setMapOpen(true)}
+      />
 
       <MapPickerModal
         visible={mapOpen}

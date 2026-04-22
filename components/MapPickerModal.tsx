@@ -1,6 +1,7 @@
 import React, { useMemo, useRef, useState } from 'react';
-import { Modal, View, Text, Pressable, StyleSheet } from 'react-native';
+import { Modal, View, Text, Pressable, StyleSheet, Alert } from 'react-native';
 import MapView, { Region } from 'react-native-maps';
+import * as Location from 'expo-location';
 import ngeohash from 'ngeohash';
 import type { GeoLite } from '../store/firestore';
 
@@ -37,19 +38,65 @@ export default function MapPickerModal({
 
   const [region, setRegion] = useState<Region>(defaultRegion);
 
-  const onSave = () => {
-    const lat = round(region.latitude, 2);
-    const lng = round(region.longitude, 2);
+  const onCenterToCurrentLocation = async () => {
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission required', 'Location permission is required.');
+        return;
+      }
 
-    onConfirm({
-      label: 'Selected area',
-      lat,
-      lng,
-      geohash: ngeohash.encode(region.latitude, region.longitude, GEOHASH_PRECISION),
+      const pos = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.Balanced,
+      });
+
+      const nextRegion = {
+        latitude: pos.coords.latitude,
+        longitude: pos.coords.longitude,
+        latitudeDelta: 0.02,
+        longitudeDelta: 0.02,
+      };
+
+      setRegion(nextRegion);
+      mapRef.current?.animateToRegion(nextRegion, 500);
+    } catch (e: any) {
+      Alert.alert('Failed to get current location', e?.message ?? 'Unknown error');
+    }
+  };
+
+const onSave = async () => {
+  const lat = round(region.latitude, 2);
+  const lng = round(region.longitude, 2);
+
+  let publicLabel = 'Pinned area';
+
+  try {
+    const places = await Location.reverseGeocodeAsync({
+      latitude: region.latitude,
+      longitude: region.longitude,
     });
 
-    onClose();
-  };
+    const place = places?.[0];
+
+    publicLabel =
+      place?.district ||
+      place?.subregion ||
+      place?.city ||
+      place?.region ||
+      'Pinned area';
+  } catch {
+    // fallback label
+  }
+
+  onConfirm({
+    label: publicLabel,
+    lat,
+    lng,
+    geohash: ngeohash.encode(region.latitude, region.longitude, GEOHASH_PRECISION),
+  });
+
+  onClose();
+};
 
   return (
     <Modal visible={visible} animationType="slide">
@@ -61,7 +108,6 @@ export default function MapPickerModal({
           onRegionChangeComplete={setRegion}
         />
 
-        {/* fixed center pin */}
         <View pointerEvents="none" style={styles.pinContainer}>
           <Text style={styles.pin}>📍</Text>
         </View>
@@ -70,12 +116,16 @@ export default function MapPickerModal({
           <Pressable onPress={onClose} style={styles.topButton}>
             <Text>Close</Text>
           </Pressable>
+
+          <Pressable onPress={onCenterToCurrentLocation} style={styles.topButton}>
+            <Text>My location</Text>
+          </Pressable>
         </View>
 
         <View style={styles.bottomCard}>
           <Text style={styles.title}>Choose pickup area</Text>
           <Text style={styles.coords}>
-            {latLabel(region.latitude)}, {lngLabel(region.longitude)}
+            {region.latitude.toFixed(4)}, {region.longitude.toFixed(4)}
           </Text>
 
           <Pressable onPress={onSave} style={styles.confirmButton}>
@@ -87,18 +137,8 @@ export default function MapPickerModal({
   );
 }
 
-function latLabel(v: number) {
-  return v.toFixed(4);
-}
-
-function lngLabel(v: number) {
-  return v.toFixed(4);
-}
-
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
+  container: { flex: 1 },
   pinContainer: {
     position: 'absolute',
     top: '50%',
@@ -106,16 +146,14 @@ const styles = StyleSheet.create({
     marginLeft: -16,
     marginTop: -32,
   },
-  pin: {
-    fontSize: 32,
-  },
+  pin: { fontSize: 32 },
   topBar: {
     position: 'absolute',
     top: 60,
     left: 16,
     right: 16,
     flexDirection: 'row',
-    justifyContent: 'flex-start',
+    justifyContent: 'space-between',
   },
   topButton: {
     backgroundColor: '#fff',
@@ -131,10 +169,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     borderRadius: 20,
     padding: 16,
-    shadowColor: '#000',
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 3 },
     elevation: 6,
   },
   title: {

@@ -130,6 +130,7 @@ export default function RideDetails({ route }: Props) {
       await createRideRequest({
         rideId: ride.id,
         driverId: ride.driverId,
+        driverName: ride.driverName,
         pickup: ride.start,
         seatsRequested: 1,
         message: '',
@@ -168,7 +169,7 @@ export default function RideDetails({ route }: Props) {
 
         <View style={styles.card}>
           <Text style={styles.sectionLabel}>Driver name</Text>
-          <Text style={styles.value}>{ride.driverId}</Text>
+          <Text style={styles.value}>{ride.driverName}</Text>
 
           <Text style={styles.sectionLabel}>From</Text>
           <Text style={styles.value}>{ride.start?.label ?? 'Unknown start'}</Text>

@@ -14,6 +14,7 @@ import Timetable from '../screens/app/timetable';
 import AppSettings from '../screens/app/settings';
 import UserPreferences from '../screens/app/userPreferences';
 import RideDetails from '../screens/app/rideDetails';
+import LiftRequestDetails from '../screens/app/liftRequestDetails';
 
 const AuthStack = createStackNavigator({
   screenOptions: { headerShown: false },
@@ -45,6 +46,7 @@ const MainStack = createStackNavigator({
   screens: {
     MainHome: { screen: Main },
     RideDetails: { screen: RideDetails },
+    LiftRequestDetails: { screen: LiftRequestDetails },
   },
 });
 

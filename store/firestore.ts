@@ -1,14 +1,25 @@
-import type { Timestamp, FieldValue } from "firebase/firestore";
+import type { Timestamp, FieldValue } from 'firebase/firestore';
 
-export type RideStatus = "open" | "full" | "cancelled" | "completed";
-export type RideRequestStatus = "pending" | "accepted" | "rejected" | "cancelled";
-export type LiftRequestStatus = "open" | "matched" | "cancelled" | "expired";
+export type RideStatus = 'open' | 'full' | 'cancelled' | 'completed';
+export type RideRequestStatus = 'pending' | 'accepted' | 'rejected' | 'cancelled';
+export type LiftRequestStatus = 'open' | 'matched' | 'cancelled' | 'expired';
+export type LiftOfferStatus = 'pending' | 'accepted' | 'rejected' | 'cancelled';
 
 export type GeoLite = {
   geohash: string;
   lat: number;
   lng: number;
   label?: string;
+};
+
+export type SavedPreferredLocation = {
+  id: string;
+  privateLabel: string;
+  publicLabel: string;
+  geohash: string;
+  lat: number;
+  lng: number;
+  createdAt: string;
 };
 
 export type TimeWindow = {
@@ -21,18 +32,22 @@ export type BaseDoc = {
   updatedAt: Timestamp;
 };
 
+export type FirestoreDoc<T> = T & {
+  id: string;
+};
+
 // ---------- RIDES (Driver offers seats) ----------
 export type Ride = BaseDoc & {
   driverId: string;
+  driverName?: string | null;
 
   start: GeoLite;
   destination: GeoLite;
 
   pickupWindow: TimeWindow;
-
   departAt?: Timestamp;
 
-  dateKey: string; // "YYYY-MM-DD"
+  dateKey: string;
 
   seatsTotal: number;
   seatsAvailable: number;
@@ -42,8 +57,7 @@ export type Ride = BaseDoc & {
   notes?: string;
 };
 
-// For Firestore writes (serverTimestamp fields)
-export type RideCreateInput = Omit<Ride, "createdAt" | "updatedAt"> & {
+export type RideCreateInput = Omit<Ride, 'createdAt' | 'updatedAt'> & {
   createdAt: FieldValue;
   updatedAt: FieldValue;
 };
@@ -51,18 +65,22 @@ export type RideCreateInput = Omit<Ride, "createdAt" | "updatedAt"> & {
 // ---------- RIDE REQUESTS (Passenger requests to join a specific ride) ----------
 export type RideRequest = BaseDoc & {
   rideId: string;
+
   driverId: string;
+  driverName?: string | null;
+
   passengerId: string;
+  passengerName?: string | null;
 
   status: RideRequestStatus;
 
   pickup: GeoLite;
 
-  seatsRequested: number; // usually 1
+  seatsRequested: number;
   message?: string;
 };
 
-export type RideRequestCreateInput = Omit<RideRequest, "createdAt" | "updatedAt"> & {
+export type RideRequestCreateInput = Omit<RideRequest, 'createdAt' | 'updatedAt'> & {
   createdAt: FieldValue;
   updatedAt: FieldValue;
 };
@@ -70,6 +88,7 @@ export type RideRequestCreateInput = Omit<RideRequest, "createdAt" | "updatedAt"
 // ---------- LIFT REQUESTS (Passenger broadcasts "I need a lift") ----------
 export type LiftRequest = BaseDoc & {
   passengerId: string;
+  passengerName?: string | null;
 
   pickup: GeoLite;
   destination: GeoLite;
@@ -77,42 +96,42 @@ export type LiftRequest = BaseDoc & {
   pickupWindow: TimeWindow;
   dateKey: string;
 
-  seatsRequested: number; // usually 1
+  seatsRequested: number;
 
   status: LiftRequestStatus;
 
   message?: string;
 };
 
-export type LiftRequestCreateInput = Omit<LiftRequest, "createdAt" | "updatedAt"> & {
+export type LiftRequestCreateInput = Omit<LiftRequest, 'createdAt' | 'updatedAt'> & {
   createdAt: FieldValue;
   updatedAt: FieldValue;
 };
 
-type RideListItem = {
-  id: string;
+// ---------- LIFT OFFERS (Driver responds to a lift request) ----------
+export type LiftOffer = BaseDoc & {
+  liftRequestId: string;
+
   driverId: string;
-  start: {
-    geohash: string;
-    lat: number;
-    lng: number;
-    label?: string;
-  };
-  destination: {
-    geohash: string;
-    lat: number;
-    lng: number;
-    label?: string;
-  };
-  pickupWindow: {
-    earliestAt: any;
-    latestAt: any;
-  };
-  seatsTotal: number;
-  seatsAvailable: number;
-  status: 'open' | 'full' | 'cancelled' | 'completed';
-  notes?: string;
-  createdAt?: any;
-  updatedAt?: any;
+  driverName?: string | null;
+
+  passengerId: string;
+  passengerName?: string | null;
+
+  start: GeoLite;
+  destination: GeoLite;
+
+  pickupWindow: TimeWindow;
   dateKey: string;
+
+  seatsOffered: number;
+
+  status: LiftOfferStatus;
+
+  message?: string;
+};
+
+export type LiftOfferCreateInput = Omit<LiftOffer, 'createdAt' | 'updatedAt'> & {
+  createdAt: FieldValue;
+  updatedAt: FieldValue;
 };

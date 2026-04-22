@@ -57,44 +57,63 @@ export default function OnboardingScreen() {
   }, [uid]);
 
   const onUseCurrentArea = async () => {
-    setError(null);
-    if (!uid) return;
+  setError(null);
+  if (!uid) return;
+
+  try {
+    setBusy(true);
+
+    const { status } = await Location.requestForegroundPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permission needed', 'Location permission is required to set a preferred area.');
+      return;
+    }
+
+    const pos = await Location.getCurrentPositionAsync({
+      accuracy: Location.Accuracy.Balanced,
+    });
+
+    const lat = pos.coords.latitude;
+    const lng = pos.coords.longitude;
+
+    const latCoarse = round(lat, 3);
+    const lngCoarse = round(lng, 3);
+
+    const geohashPrecision = 6;
+    const gh = ngeohash.encode(lat, lng, geohashPrecision);
+
+    let publicLabel = 'Pinned area';
 
     try {
-      setBusy(true);
-
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== 'granted') {
-        Alert.alert('Permission needed', 'Location permission is required to set a preferred area.');
-        return;
-      }
-
-      const pos = await Location.getCurrentPositionAsync({
-        accuracy: Location.Accuracy.Balanced,
+      const places = await Location.reverseGeocodeAsync({
+        latitude: lat,
+        longitude: lng,
       });
 
-      const lat = pos.coords.latitude;
-      const lng = pos.coords.longitude;
+      const place = places?.[0];
+      publicLabel =
+        place?.district ||
+        place?.subregion ||
+        place?.city ||
+        place?.region ||
+        'Pinned area';
+    } catch {
 
-      const latCoarse = round(lat, 3); // ~100m; change to 2 for ~1km
-      const lngCoarse = round(lng, 3);
-
-      const geohashPrecision = 6; // ~1.2km cell
-      const gh = ngeohash.encode(lat, lng, geohashPrecision);
-
-      setPreferredLocation({
-        id: makeId(),
-        label: locationLabel.trim() || 'Home',
-        geohash: gh,
-        lat: latCoarse,
-        lng: lngCoarse,
-      });
-    } catch (e: any) {
-      Alert.alert('Failed to get location', e?.message ?? 'Unknown error');
-    } finally {
-      setBusy(false);
     }
-  };
+
+    setPreferredLocation({
+      id: makeId(),
+      label: publicLabel,
+      geohash: gh,
+      lat: latCoarse,
+      lng: lngCoarse,
+    });
+  } catch (e: any) {
+    Alert.alert('Failed to get location', e?.message ?? 'Unknown error');
+  } finally {
+    setBusy(false);
+  }
+};
 
   const onSave = async () => {
     setError(null);
@@ -130,16 +149,18 @@ export default function OnboardingScreen() {
         const locId = preferredLocation.id ?? makeId();
 
         update.preferredLocations = [
-        {
-          id: locId,
-          label: preferredLocation.label.trim(),
-          geohash: preferredLocation.geohash,
-          lat: preferredLocation.lat,
-          lng: preferredLocation.lng,
-          createdAt: new Date().toISOString(),
-        },
-      ];
-      update.defaultPreferredLocationId = locId;
+          {
+            id: locId,
+            privateLabel: locationLabel.trim() || 'Home',
+            publicLabel: preferredLocation.label,
+            geohash: preferredLocation.geohash,
+            lat: preferredLocation.lat,
+            lng: preferredLocation.lng,
+            createdAt: new Date().toISOString(),
+          },
+        ];
+
+        update.defaultPreferredLocationId = locId;
       }
 
       await setDoc(userRef, update, { merge: true });

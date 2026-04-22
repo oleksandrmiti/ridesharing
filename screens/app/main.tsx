@@ -1,18 +1,30 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { View, Text, FlatList, ActivityIndicator, StyleSheet, Alert } from 'react-native';
+import {
+  View,
+  Text,
+  FlatList,
+  ActivityIndicator,
+  StyleSheet,
+  Alert,
+  Pressable,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import BottomSheet from '@gorhom/bottom-sheet';
 import { collection, onSnapshot, orderBy, query, where } from 'firebase/firestore';
 import ngeohash from 'ngeohash';
 import { useNavigation } from '@react-navigation/native';
+
 import Fab from '../../components/Fab';
 import AppBottomSheet from '../../components/BottomSheetModal';
 import CreateTripSheet from '../../components/CreateTripSheet';
 import RideCard from '../../components/RideCard';
+import LiftRequestCard from '../../components/LiftRequestCard';
 
 import type { GeoLite } from '../../store/firestore';
 import { db } from '../../utils/firebase';
 import { createRide, createLiftRequest } from '../../utils/firestoreWrites';
+
+type FeedMode = 'RIDES' | 'LIFT_REQUESTS';
 
 type RideListItem = {
   id: string;
@@ -42,11 +54,42 @@ type RideListItem = {
   dateKey: string;
 };
 
+type LiftRequestListItem = {
+  id: string;
+  passengerId: string;
+  pickup: {
+    geohash: string;
+    lat: number;
+    lng: number;
+    label?: string;
+  };
+  destination: {
+    geohash: string;
+    lat: number;
+    lng: number;
+    label?: string;
+  };
+  pickupWindow: {
+    earliestAt: any;
+    latestAt: any;
+  };
+  seatsRequested: number;
+  status: 'open' | 'matched' | 'cancelled' | 'expired';
+  message?: string;
+  createdAt?: any;
+  updatedAt?: any;
+  dateKey: string;
+};
+
 const Main = () => {
   const sheetRef = useRef<BottomSheet>(null);
-  const [sheetOpenKey, setSheetOpenKey] = useState(0);
   const navigation = useNavigation<any>();
+
+  const [sheetOpenKey, setSheetOpenKey] = useState(0);
+  const [mode, setMode] = useState<FeedMode>('RIDES');
+
   const [rides, setRides] = useState<RideListItem[]>([]);
+  const [liftRequests, setLiftRequests] = useState<LiftRequestListItem[]>([]);
   const [loading, setLoading] = useState(true);
 
   const defaultDestination: GeoLite = useMemo(
@@ -60,8 +103,38 @@ const Main = () => {
   );
 
   useEffect(() => {
+    setLoading(true);
+
+    if (mode === 'RIDES') {
+      const q = query(
+        collection(db, 'rides'),
+        where('status', '==', 'open'),
+        orderBy('createdAt', 'desc')
+      );
+
+      const unsubscribe = onSnapshot(
+        q,
+        (snapshot) => {
+          const next: RideListItem[] = snapshot.docs.map((doc) => ({
+            id: doc.id,
+            ...(doc.data() as Omit<RideListItem, 'id'>),
+          }));
+
+          setRides(next);
+          setLoading(false);
+        },
+        (error) => {
+          console.error('Failed to load rides:', error);
+          Alert.alert('Failed to load rides', error.message ?? 'Unknown error');
+          setLoading(false);
+        }
+      );
+
+      return unsubscribe;
+    }
+
     const q = query(
-      collection(db, 'rides'),
+      collection(db, 'liftRequests'),
       where('status', '==', 'open'),
       orderBy('createdAt', 'desc')
     );
@@ -69,23 +142,23 @@ const Main = () => {
     const unsubscribe = onSnapshot(
       q,
       (snapshot) => {
-        const next: RideListItem[] = snapshot.docs.map((doc) => ({
+        const next: LiftRequestListItem[] = snapshot.docs.map((doc) => ({
           id: doc.id,
-          ...(doc.data() as Omit<RideListItem, 'id'>),
+          ...(doc.data() as Omit<LiftRequestListItem, 'id'>),
         }));
 
-        setRides(next);
+        setLiftRequests(next);
         setLoading(false);
       },
       (error) => {
-        console.error('Failed to load rides:', error);
-        Alert.alert('Failed to load rides', error.message ?? 'Unknown error');
+        console.error('Failed to load lift requests:', error);
+        Alert.alert('Failed to load lift requests', error.message ?? 'Unknown error');
         setLoading(false);
       }
     );
 
     return unsubscribe;
-  }, []);
+  }, [mode]);
 
   const onOpenSheet = () => {
     setSheetOpenKey((prev) => prev + 1);
@@ -124,35 +197,84 @@ const Main = () => {
     onCloseSheet();
   };
 
+  const data = mode === 'RIDES' ? rides : liftRequests;
+
   return (
     <SafeAreaView style={{ flex: 1 }}>
       <View style={styles.container}>
-        <Text style={styles.title}>Available rides</Text>
+        <Text style={styles.title}>
+          {mode === 'RIDES' ? 'Available rides' : 'Passengers looking for a ride'}
+        </Text>
+
+        <View style={styles.segmentRow}>
+          <Pressable
+            onPress={() => setMode('RIDES')}
+            style={[
+              styles.segmentButton,
+              mode === 'RIDES' && styles.segmentButtonActive,
+            ]}
+          >
+            <Text
+              style={[
+                styles.segmentText,
+                mode === 'RIDES' && styles.segmentTextActive,
+              ]}
+            >
+              Rides
+            </Text>
+          </Pressable>
+
+          <Pressable
+            onPress={() => setMode('LIFT_REQUESTS')}
+            style={[
+              styles.segmentButton,
+              mode === 'LIFT_REQUESTS' && styles.segmentButtonActive,
+            ]}
+          >
+            <Text
+              style={[
+                styles.segmentText,
+                mode === 'LIFT_REQUESTS' && styles.segmentTextActive,
+              ]}
+            >
+              Lift Requests
+            </Text>
+          </Pressable>
+        </View>
 
         {loading ? (
           <View style={styles.centered}>
             <ActivityIndicator size="large" />
-            <Text style={styles.helperText}>Loading rides...</Text>
+            <Text style={styles.helperText}>Loading...</Text>
           </View>
-        ) : rides.length === 0 ? (
+        ) : data.length === 0 ? (
           <View style={styles.centered}>
-            <Text style={styles.emptyTitle}>No rides yet</Text>
+            <Text style={styles.emptyTitle}>Nothing here yet</Text>
             <Text style={styles.helperText}>Tap + to create the first one.</Text>
           </View>
         ) : (
           <FlatList
-            data={rides}
+            data={data}
             keyExtractor={(item) => item.id}
             contentContainerStyle={styles.listContent}
             showsVerticalScrollIndicator={false}
-            renderItem={({ item }) => (
-              <RideCard
-                ride={item}
-                onPress={() => {
-                  navigation.navigate('RideDetails', { rideId: item.id });
-                }}
-              />
-            )}
+            renderItem={({ item }) =>
+              mode === 'RIDES' ? (
+                <RideCard
+                  ride={item as RideListItem}
+                  onPress={() => {
+                    navigation.navigate('RideDetails', { rideId: item.id });
+                  }}
+                />
+              ) : (
+                <LiftRequestCard
+                  request={item as LiftRequestListItem}
+                  onPress={() => {
+                    navigation.navigate('LiftRequestDetails', { liftRequestId: item.id });
+                  }}
+                />
+              )
+            }
           />
         )}
       </View>
@@ -186,6 +308,28 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#111827',
     marginBottom: 12,
+  },
+  segmentRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 14,
+  },
+  segmentButton: {
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderRadius: 12,
+    backgroundColor: '#F1F5F9',
+  },
+  segmentButtonActive: {
+    backgroundColor: '#E9E3FF',
+  },
+  segmentText: {
+    color: '#4B5563',
+    fontWeight: '500',
+  },
+  segmentTextActive: {
+    color: '#6D5EF5',
+    fontWeight: '700',
   },
   listContent: {
     gap: 12,

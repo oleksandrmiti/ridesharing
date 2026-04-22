@@ -1,8 +1,8 @@
-import { addDoc, collection, serverTimestamp, Timestamp } from "firebase/firestore";
+import { addDoc, collection, serverTimestamp, Timestamp, doc, getDoc } from "firebase/firestore";
 import ngeohash from "ngeohash";
 
 import { auth, db } from "../utils/firebase";
-import type { GeoLite, RideCreateInput, RideRequestCreateInput, LiftRequestCreateInput } from "../store/firestore";
+import type { GeoLite, RideCreateInput, RideRequestCreateInput, LiftRequestCreateInput, LiftOfferCreateInput } from "../store/firestore";
 
 // ---- helpers ----
 
@@ -50,8 +50,14 @@ export async function createRide(params: {
 
   const dateKey = dateKeyFromDate(params.date);
 
+  const userSnap = await getDoc(doc(db, 'users', user.uid));
+  const userData = userSnap.exists() ? userSnap.data() as any : null;
+  const driverName = userData?.displayName?.trim() || 'Unknown driver';
+
   const payload: RideCreateInput = {
     driverId: user.uid,
+    
+    driverName,
 
     start: params.start,
     destination: params.destination,
@@ -128,31 +134,78 @@ export async function createLiftRequest(params: {
   const user = auth.currentUser;
   if (!user) throw new Error("Not authenticated");
 
+  const userSnap = await getDoc(doc(db, 'users', user.uid));
+  const userData = userSnap.exists() ? (userSnap.data() as any) : null;
+  const passengerName = userData?.displayName?.trim() || 'Unknown passenger';
+
   const payload: LiftRequestCreateInput = {
     passengerId: user.uid,
-
+    passengerName,
     pickup: params.pickup,
     destination: params.destination,
-
     pickupWindow: {
       earliestAt: toTimestamp(params.earliestAt),
       latestAt: toTimestamp(params.latestAt),
     },
-
     dateKey: dateKeyFromDate(params.date),
-
     seatsRequested: params.seatsRequested,
-
     status: "open",
-
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
   };
-  
+
   const trimmedMessage = params.message?.trim();
   if (trimmedMessage) {
     payload.message = trimmedMessage;
   }
+
   const ref = await addDoc(collection(db, "liftRequests"), payload);
+  return ref.id;
+}
+
+export async function createLiftOffer(params: {
+  liftRequestId: string;
+  passengerId: string;
+  passengerName?: string | null;
+  start: GeoLite;
+  destination: GeoLite;
+  earliestAt: Date;
+  latestAt: Date;
+  date: Date;
+  seatsOffered: number;
+  message?: string;
+}) {
+  const user = auth.currentUser;
+  if (!user) throw new Error("Not authenticated");
+
+  const userSnap = await getDoc(doc(db, 'users', user.uid));
+  const userData = userSnap.exists() ? (userSnap.data() as any) : null;
+  const driverName = userData?.displayName?.trim() || 'Unknown driver';
+
+  const payload: LiftOfferCreateInput = {
+    liftRequestId: params.liftRequestId,
+    driverId: user.uid,
+    driverName,
+    passengerId: params.passengerId,
+    passengerName: params.passengerName?.trim() || undefined,
+    start: params.start,
+    destination: params.destination,
+    pickupWindow: {
+      earliestAt: toTimestamp(params.earliestAt),
+      latestAt: toTimestamp(params.latestAt),
+    },
+    dateKey: dateKeyFromDate(params.date),
+    seatsOffered: params.seatsOffered,
+    status: 'pending',
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  };
+
+  const trimmedMessage = params.message?.trim();
+  if (trimmedMessage) {
+    payload.message = trimmedMessage;
+  }
+
+  const ref = await addDoc(collection(db, 'liftOffers'), payload);
   return ref.id;
 }

@@ -1,11 +1,10 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, Pressable } from 'react-native';
+import { Text, TextInput, Pressable } from 'react-native';
 import { createUserWithEmailAndPassword, sendEmailVerification } from 'firebase/auth';
 import { useNavigation } from '@react-navigation/native';
 import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { auth, db } from '../../utils/firebase';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { create } from 'zustand';
 
 type AuthRoles = {
   SignIn: undefined;
