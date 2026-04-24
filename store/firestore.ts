@@ -40,6 +40,7 @@ export type FirestoreDoc<T> = T & {
 export type Ride = BaseDoc & {
   driverId: string;
   driverName?: string | null;
+  driverRating?: number | null;
 
   start: GeoLite;
   destination: GeoLite;

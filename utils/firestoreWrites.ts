@@ -53,11 +53,14 @@ export async function createRide(params: {
   const userSnap = await getDoc(doc(db, 'users', user.uid));
   const userData = userSnap.exists() ? userSnap.data() as any : null;
   const driverName = userData?.displayName?.trim() || 'Unknown driver';
+  const driverRating =
+  typeof userData?.ratingAvg === 'number' ? userData.ratingAvg : null;
 
   const payload: RideCreateInput = {
     driverId: user.uid,
     
     driverName,
+    driverRating,
 
     start: params.start,
     destination: params.destination,
