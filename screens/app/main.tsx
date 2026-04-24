@@ -41,7 +41,7 @@ type RideListItem = {
     lng: number;
     label?: string;
   };
-  pickupWindow: {
+  arrivalWindow: {
     earliestAt: any;
     latestAt: any;
   };
@@ -69,7 +69,7 @@ type LiftRequestListItem = {
     lng: number;
     label?: string;
   };
-  pickupWindow: {
+  arrivalWindow: {
     earliestAt: any;
     latestAt: any;
   };

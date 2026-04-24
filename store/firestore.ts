@@ -45,7 +45,7 @@ export type Ride = BaseDoc & {
   start: GeoLite;
   destination: GeoLite;
 
-  pickupWindow: TimeWindow;
+  arrivalWindow: TimeWindow;
   departAt?: Timestamp;
 
   dateKey: string;
@@ -94,7 +94,7 @@ export type LiftRequest = BaseDoc & {
   pickup: GeoLite;
   destination: GeoLite;
 
-  pickupWindow: TimeWindow;
+  arrivalWindow: TimeWindow;
   dateKey: string;
 
   seatsRequested: number;
@@ -122,7 +122,7 @@ export type LiftOffer = BaseDoc & {
   start: GeoLite;
   destination: GeoLite;
 
-  pickupWindow: TimeWindow;
+  arrivalWindow: TimeWindow;
   dateKey: string;
 
   seatsOffered: number;

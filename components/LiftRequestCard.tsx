@@ -6,7 +6,7 @@ type Props = {
     id: string;
     pickup: { label?: string };
     destination: { label?: string };
-    pickupWindow: {
+    arrivalWindow: {
       earliestAt: any;
       latestAt: any;
     };
@@ -46,8 +46,8 @@ export default function LiftRequestCard({ request, onPress }: Props) {
       <Text style={styles.arrow}>→ {request.destination?.label ?? 'Destination'}</Text>
 
       <Text style={styles.time}>
-        {request.dateKey} · {formatTime(request.pickupWindow?.earliestAt)} -{' '}
-        {formatTime(request.pickupWindow?.latestAt)}
+        {request.dateKey} · {formatTime(request.arrivalWindow?.earliestAt)} -{' '}
+        {formatTime(request.arrivalWindow?.latestAt)}
       </Text>
 
       {request.message ? <Text style={styles.notes}>{request.message}</Text> : null}

@@ -41,7 +41,7 @@ type RideDetailsData = {
     lng: number;
     label?: string;
   };
-  pickupWindow: {
+  arrivalWindow: {
     earliestAt: any;
     latestAt: any;
   };
@@ -180,9 +180,9 @@ export default function RideDetails({ route }: Props) {
           <Text style={styles.sectionLabel}>Date</Text>
           <Text style={styles.value}>{ride.dateKey}</Text>
 
-          <Text style={styles.sectionLabel}>Pickup window</Text>
+          <Text style={styles.sectionLabel}>Arrival window</Text>
           <Text style={styles.value}>
-            {formatTime(ride.pickupWindow?.earliestAt)} - {formatTime(ride.pickupWindow?.latestAt)}
+            {formatTime(ride.arrivalWindow?.earliestAt)} - {formatTime(ride.arrivalWindow?.latestAt)}
           </Text>
 
           <Text style={styles.sectionLabel}>Seats</Text>

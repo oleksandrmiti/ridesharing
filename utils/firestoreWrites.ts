@@ -65,7 +65,7 @@ export async function createRide(params: {
     start: params.start,
     destination: params.destination,
 
-    pickupWindow: {
+    arrivalWindow: {
       earliestAt: toTimestamp(params.earliestAt),
       latestAt: toTimestamp(params.latestAt),
     },
@@ -146,7 +146,7 @@ export async function createLiftRequest(params: {
     passengerName,
     pickup: params.pickup,
     destination: params.destination,
-    pickupWindow: {
+    arrivalWindow: {
       earliestAt: toTimestamp(params.earliestAt),
       latestAt: toTimestamp(params.latestAt),
     },
@@ -193,7 +193,7 @@ export async function createLiftOffer(params: {
     passengerName: params.passengerName?.trim() || undefined,
     start: params.start,
     destination: params.destination,
-    pickupWindow: {
+    arrivalWindow: {
       earliestAt: toTimestamp(params.earliestAt),
       latestAt: toTimestamp(params.latestAt),
     },

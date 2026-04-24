@@ -6,7 +6,7 @@ type Props = {
     id: string;
     start: { label?: string };
     destination: { label?: string };
-    pickupWindow: {
+    arrivalWindow: {
       earliestAt: any;
       latestAt: any;
     };
@@ -49,8 +49,8 @@ export default function RideCard({ ride, onPress }: Props) {
       <Text style={styles.arrow}>→ {ride.destination?.label ?? 'Destination'}</Text>
 
       <Text style={styles.time}>
-        {ride.dateKey} · {formatTime(ride.pickupWindow?.earliestAt)} -{' '}
-        {formatTime(ride.pickupWindow?.latestAt)}
+        {ride.dateKey} · {formatTime(ride.arrivalWindow?.earliestAt)} -{' '}
+        {formatTime(ride.arrivalWindow?.latestAt)}
       </Text>
 
       {ride.notes ? <Text style={styles.notes}>{ride.notes}</Text> : null}

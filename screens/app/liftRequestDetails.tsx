@@ -37,7 +37,7 @@ type LiftRequestDetailsData = {
     lng: number;
     label?: string;
   };
-  pickupWindow: {
+  arrivalWindow: {
     earliestAt: any;
     latestAt: any;
   };
@@ -121,14 +121,14 @@ export default function LiftRequestDetails({ route }: Props) {
       setCreatingRide(true);
 
       const earliestDate =
-        typeof request.pickupWindow?.earliestAt?.toDate === 'function'
-          ? request.pickupWindow.earliestAt.toDate()
-          : new Date(request.pickupWindow?.earliestAt);
+        typeof request.arrivalWindow?.earliestAt?.toDate === 'function'
+          ? request.arrivalWindow.earliestAt.toDate()
+          : new Date(request.arrivalWindow?.earliestAt);
 
       const latestDate =
-        typeof request.pickupWindow?.latestAt?.toDate === 'function'
-          ? request.pickupWindow.latestAt.toDate()
-          : new Date(request.pickupWindow?.latestAt);
+        typeof request.arrivalWindow?.latestAt?.toDate === 'function'
+          ? request.arrivalWindow.latestAt.toDate()
+          : new Date(request.arrivalWindow?.latestAt);
 
       await createLiftOffer({
         liftRequestId: request.id,
@@ -191,8 +191,8 @@ export default function LiftRequestDetails({ route }: Props) {
 
           <Text style={styles.sectionLabel}>Pickup window</Text>
           <Text style={styles.value}>
-            {formatTime(request.pickupWindow?.earliestAt)} -{' '}
-            {formatTime(request.pickupWindow?.latestAt)}
+            {formatTime(request.arrivalWindow?.earliestAt)} -{' '}
+            {formatTime(request.arrivalWindow?.latestAt)}
           </Text>
 
           <Text style={styles.sectionLabel}>Seats requested</Text>
