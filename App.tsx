@@ -7,7 +7,7 @@ import 'react-native-gesture-handler';
 import Navigation from './navigation';
 import { auth, db } from 'utils/firebase';
 import { doc, getDoc } from 'firebase/firestore';
-import { onIdTokenChanged } from 'firebase/auth';
+import { onIdTokenChanged, signOut } from 'firebase/auth';
 import { useAuthStore } from 'store/authStore'
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
@@ -38,7 +38,17 @@ export default function App() {
 
         try {
           const snap = await getDoc(doc(db, 'users', user.uid));
-          const completed = snap.exists() ? !!(snap.data() as any).profileCompleted : false;
+          const userProfile = snap.exists() ? (snap.data() as any) : null;
+
+          if (userProfile?.isActive === false) {
+            await signOut(auth);
+            setUser(null);
+            setProfileCompleted(null);
+            setInitializing(false);
+            return;
+          }
+
+          const completed = userProfile ? !!userProfile.profileCompleted : false;
           setProfileCompleted(completed);
         } catch (e) {
           setProfileCompleted(false);

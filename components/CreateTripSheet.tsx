@@ -79,8 +79,13 @@ export default function CreateTripSheet({
   const [pickerMode, setPickerMode] = useState<PickerMode>(null);
   const [locationSelectOpen, setLocationSelectOpen] = useState(false);
 
-  const [from, setFrom] = useState<GeoLite | null>(defaultPickup);
-  const [to] = useState<GeoLite | null>(defaultDestination);
+  type Direction = 'TO_CAMPUS' | 'FROM_CAMPUS';
+
+  const [direction, setDirection] = useState<Direction>('TO_CAMPUS');
+  const [userLocation, setUserLocation] = useState<GeoLite | null>(defaultPickup);
+
+  const from = direction === 'TO_CAMPUS' ? userLocation : defaultDestination;
+  const to = direction === 'TO_CAMPUS' ? defaultDestination : userLocation;
 
   const [date, setDate] = useState<Date | null>(new Date());
   const [earliest, setEarliest] = useState<Date | null>(null);
@@ -163,26 +168,26 @@ export default function CreateTripSheet({
   };
 
   const applyPickerValue = (selected: Date) => {
-  if (pickerMode === 'date') {
-    const nextDate = selected;
-    setDate(nextDate);
+    if (pickerMode === 'date') {
+      const nextDate = selected;
+      setDate(nextDate);
 
-    if (earliest) setEarliest(combineDateAndTime(nextDate, earliest));
-    if (latest) setLatest(combineDateAndTime(nextDate, latest));
-    return;
-  }
+      if (earliest) setEarliest(combineDateAndTime(nextDate, earliest));
+      if (latest) setLatest(combineDateAndTime(nextDate, latest));
+      return;
+    }
 
-  if (!date) return;
+    if (!date) return;
 
-  if (pickerMode === 'earliest') {
-    setEarliest(combineDateAndTime(date, selected));
-    return;
-  }
+    if (pickerMode === 'earliest') {
+      setEarliest(combineDateAndTime(date, selected));
+      return;
+    }
 
-  if (pickerMode === 'latest') {
-    setLatest(combineDateAndTime(date, selected));
-  }
-};
+    if (pickerMode === 'latest') {
+      setLatest(combineDateAndTime(date, selected));
+    }
+  };
 
   const onChangePicker = (_event: any, selected?: Date) => {
     if (!selected) return;
@@ -193,9 +198,20 @@ export default function CreateTripSheet({
       return;
     }
 
-    // iOS: keep temporary value until Done is pressed
     setPickerValue(selected);
   };
+
+  const openLocationPicker = (target: 'from' | 'to') => {
+    setLocationTarget(target);
+    setLocationSelectOpen(true);
+  };
+
+  const onFlipRoute = () => {
+    setDirection((current) =>
+      current === 'TO_CAMPUS' ? 'FROM_CAMPUS' : 'TO_CAMPUS'
+    );
+  };
+
 
   return (
     <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
@@ -239,19 +255,41 @@ export default function CreateTripSheet({
         </Pressable>
       </View>
 
-      <View style={{ gap: 6 }}>
-        <Text style={styles.label}>Location</Text>
-        <Pressable onPress={() => setLocationSelectOpen(true)} style={styles.inputButton}>
-          <Text style={{ color: from ? '#111' : '#999' }}>
-            {from?.label ?? 'Choose starting area'}
-          </Text>
-        </Pressable>
-      </View>
+      <View style={{ gap: 8 }}>
+        <View style={{ gap: 6 }}>
+          <Text style={styles.label}>From</Text>
 
-      <View style={{ gap: 6 }}>
-        <Text style={styles.label}>Destination</Text>
-        <View style={styles.inputButton}>
-          <Text style={{ color: '#111' }}>{to?.label ?? 'MTU Bishopstown'}</Text>
+          {direction === 'TO_CAMPUS' ? (
+            <Pressable onPress={() => setLocationSelectOpen(true)} style={styles.inputButton}>
+              <Text style={{ color: userLocation ? '#111' : '#999' }}>
+                {userLocation?.label ?? 'Choose starting area'}
+              </Text>
+            </Pressable>
+          ) : (
+            <View style={styles.inputButton}>
+              <Text>{defaultDestination.label}</Text>
+            </View>
+          )}
+        </View>
+
+        <Pressable onPress={onFlipRoute} style={styles.flipButton}>
+          <Text style={styles.flipButtonText}>⇅ Swap direction</Text>
+        </Pressable>
+
+        <View style={{ gap: 6 }}>
+          <Text style={styles.label}>To</Text>
+
+          {direction === 'FROM_CAMPUS' ? (
+            <Pressable onPress={() => setLocationSelectOpen(true)} style={styles.inputButton}>
+              <Text style={{ color: userLocation ? '#111' : '#999' }}>
+                {userLocation?.label ?? 'Choose destination area'}
+              </Text>
+            </Pressable>
+          ) : (
+            <View style={styles.inputButton}>
+              <Text>{defaultDestination.label}</Text>
+            </View>
+          )}
         </View>
       </View>
 
@@ -397,17 +435,17 @@ export default function CreateTripSheet({
         </View>
       </Modal>
 
-      <LocationSelectModal
+     <LocationSelectModal
         visible={locationSelectOpen}
         onClose={() => setLocationSelectOpen(false)}
-        onSelect={(geo) => setFrom(geo)}
+        onSelect={(geo) => setUserLocation(geo)}
         onOpenMap={() => setMapOpen(true)}
       />
 
       <MapPickerModal
         visible={mapOpen}
         onClose={() => setMapOpen(false)}
-        onConfirm={(geo) => setFrom(geo)}
+        onConfirm={(geo) => setUserLocation(geo)}
       />
     </View>
     </TouchableWithoutFeedback>
@@ -530,5 +568,16 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     alignItems: 'center',
     backgroundColor: '#F8FAFC',
+  },
+  flipButton: {
+    alignSelf: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    borderRadius: 999,
+    backgroundColor: '#E9E3FF',
+  },
+  flipButtonText: {
+    color: '#6D5EF5',
+    fontWeight: '700',
   },
 });
