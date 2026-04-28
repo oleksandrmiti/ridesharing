@@ -1,6 +1,5 @@
-import { addDoc, collection, serverTimestamp, Timestamp, doc, getDoc } from "firebase/firestore";
+import { addDoc, collection, serverTimestamp, Timestamp, doc, getDoc, getDocs, updateDoc, increment, writeBatch, limit, where, query } from "firebase/firestore";
 import ngeohash from "ngeohash";
-
 import { auth, db } from "../utils/firebase";
 import type { GeoLite, RideCreateInput, RideRequestCreateInput, LiftRequestCreateInput, LiftOfferCreateInput } from "../store/firestore";
 
@@ -32,6 +31,176 @@ export function dateKeyFromDate(d: Date): string {
 
 export function toTimestamp(d: Date): Timestamp {
   return Timestamp.fromDate(d);
+}
+
+export async function cancelRide(rideId: string) {
+  const user = auth.currentUser;
+  if (!user) throw new Error('Not authenticated');
+
+  const rideRef = doc(db, 'rides', rideId);
+  const snap = await getDoc(rideRef);
+
+  if (!snap.exists()) throw new Error('Ride not found');
+
+  const ride = snap.data() as any;
+  if (ride.driverId !== user.uid) throw new Error('Only the driver can cancel this ride');
+
+  await updateDoc(rideRef, {
+    status: 'cancelled',
+    updatedAt: serverTimestamp(),
+  });
+}
+
+export async function cancelLiftRequest(liftRequestId: string) {
+  const user = auth.currentUser;
+  if (!user) throw new Error('Not authenticated');
+
+  const ref = doc(db, 'liftRequests', liftRequestId);
+  const snap = await getDoc(ref);
+
+  if (!snap.exists()) throw new Error('Lift request not found');
+
+  const data = snap.data() as any;
+  if (data.passengerId !== user.uid) {
+    throw new Error('Only the passenger can cancel this lift request');
+  }
+
+  await updateDoc(ref, {
+    status: 'cancelled',
+    updatedAt: serverTimestamp(),
+  });
+}
+
+export async function acceptRideRequest(params: {
+  requestId: string;
+  rideId: string;
+  seatsRequested: number;
+}) {
+  const user = auth.currentUser;
+  if (!user) throw new Error('Not authenticated');
+
+  const rideRef = doc(db, 'rides', params.rideId);
+  const requestRef = doc(db, 'rideRequests', params.requestId);
+
+  const rideSnap = await getDoc(rideRef);
+  const requestSnap = await getDoc(requestRef);
+
+  if (!rideSnap.exists()) throw new Error('Ride not found');
+  if (!requestSnap.exists()) throw new Error('Request not found');
+
+  const ride = rideSnap.data() as any;
+  const request = requestSnap.data() as any;
+
+  if (ride.driverId !== user.uid) {
+    throw new Error('Only the driver can accept this request');
+  }
+
+  if (request.status !== 'pending') {
+    throw new Error('This request is no longer pending');
+  }
+
+  if (ride.seatsAvailable < params.seatsRequested) {
+    throw new Error('Not enough seats available');
+  }
+
+  const nextSeats = ride.seatsAvailable - params.seatsRequested;
+
+  const batch = writeBatch(db);
+
+  batch.update(requestRef, {
+    status: 'accepted',
+    updatedAt: serverTimestamp(),
+  });
+
+  batch.update(rideRef, {
+    seatsAvailable: increment(-params.seatsRequested),
+    status: nextSeats <= 0 ? 'full' : 'open',
+    updatedAt: serverTimestamp(),
+  });
+
+  await batch.commit();
+}
+
+export async function rejectRideRequest(requestId: string) {
+  const user = auth.currentUser;
+  if (!user) throw new Error('Not authenticated');
+
+  const ref = doc(db, 'rideRequests', requestId);
+  const snap = await getDoc(ref);
+
+  if (!snap.exists()) throw new Error('Request not found');
+
+  const data = snap.data() as any;
+  if (data.driverId !== user.uid) {
+    throw new Error('Only the driver can reject this request');
+  }
+
+  await updateDoc(ref, {
+    status: 'rejected',
+    updatedAt: serverTimestamp(),
+  });
+}
+
+export async function acceptLiftOffer(params: {
+  offerId: string;
+  liftRequestId: string;
+}) {
+  const user = auth.currentUser;
+  if (!user) throw new Error('Not authenticated');
+
+  const offerRef = doc(db, 'liftOffers', params.offerId);
+  const requestRef = doc(db, 'liftRequests', params.liftRequestId);
+
+  const offerSnap = await getDoc(offerRef);
+  const requestSnap = await getDoc(requestRef);
+
+  if (!offerSnap.exists()) throw new Error('Offer not found');
+  if (!requestSnap.exists()) throw new Error('Lift request not found');
+
+  const offer = offerSnap.data() as any;
+  const request = requestSnap.data() as any;
+
+  if (request.passengerId !== user.uid) {
+    throw new Error('Only the passenger can accept this offer');
+  }
+
+  if (offer.status !== 'pending') {
+    throw new Error('This offer is no longer pending');
+  }
+
+  const batch = writeBatch(db);
+
+  batch.update(offerRef, {
+    status: 'accepted',
+    updatedAt: serverTimestamp(),
+  });
+
+  batch.update(requestRef, {
+    status: 'matched',
+    updatedAt: serverTimestamp(),
+  });
+
+  await batch.commit();
+}
+
+export async function rejectLiftOffer(offerId: string) {
+  const user = auth.currentUser;
+  if (!user) throw new Error('Not authenticated');
+
+  const ref = doc(db, 'liftOffers', offerId);
+  const snap = await getDoc(ref);
+
+  if (!snap.exists()) throw new Error('Offer not found');
+
+  const data = snap.data() as any;
+  if (data.passengerId !== user.uid) {
+    throw new Error('Only the passenger can reject this offer');
+  }
+
+  await updateDoc(ref, {
+    status: 'rejected',
+    updatedAt: serverTimestamp(),
+  });
 }
 
 // ---- writes ----
@@ -95,22 +264,41 @@ export async function createRide(params: {
 export async function createRideRequest(params: {
   rideId: string;
   driverId: string;
+  driverName?: string | null;
   pickup: GeoLite;
   seatsRequested: number;
   message?: string;
 }) {
   const user = auth.currentUser;
-  if (!user) throw new Error("Not authenticated");
+  if (!user) throw new Error('Not authenticated');
 
+  const existingRequestQuery = query(
+    collection(db, 'rideRequests'),
+    where('rideId', '==', params.rideId),
+    where('passengerId', '==', user.uid),
+    where('status', 'in', ['pending', 'accepted']),
+    limit(1)
+  );
+
+  const existingRequestSnap = await getDocs(existingRequestQuery);
+
+  if (!existingRequestSnap.empty) {
+    throw new Error('You have already requested or joined this ride.');
+  }
+
+  const userSnap = await getDoc(doc(db, 'users', user.uid));
+  const userData = userSnap.exists() ? (userSnap.data() as any) : null;
+  const passengerName = userData?.displayName?.trim() || 'Unknown passenger';
+  
   const payload: RideRequestCreateInput = {
     rideId: params.rideId,
     driverId: params.driverId,
+    driverName: params.driverName ?? null,
     passengerId: user.uid,
+    passengerName,
 
-    status: "pending",
-
+    status: 'pending',
     pickup: params.pickup,
-
     seatsRequested: params.seatsRequested,
 
     createdAt: serverTimestamp(),
@@ -121,7 +309,8 @@ export async function createRideRequest(params: {
   if (trimmedMessage) {
     payload.message = trimmedMessage;
   }
-  const ref = await addDoc(collection(db, "rideRequests"), payload);
+
+  const ref = await addDoc(collection(db, 'rideRequests'), payload);
   return ref.id;
 }
 

@@ -10,6 +10,7 @@ import VerifyEmailScreen from '../screens/auth/verifyEmail';
 import OnboardingScreen from '../screens/auth/onboarding';
 
 import Main from '../screens/app/main';
+import MyTripsScreen from '../screens/app/myTrips';
 import Timetable from '../screens/app/timetable';
 import AppSettings from '../screens/app/settings';
 import UserPreferences from '../screens/app/userPreferences';
@@ -41,38 +42,39 @@ const OnboardingStack = createStackNavigator({
 });
 const OnboardingNavigation = createStaticNavigation(OnboardingStack);
 
-const MainStack = createStackNavigator({
+const Tabs = createBottomTabNavigator({
+  screenOptions: ({ route }) => ({
+    headerShown: false,
+    tabBarIcon: ({ color, size }) => {
+      const name =
+        route.name === 'Main'
+          ? 'home'
+          : route.name === 'MyTrips'
+          ? 'car'
+          : route.name === 'UserPreferences'
+          ? 'person'
+          : 'settings';
+
+      return <Ionicons name={name as any} size={size} color={color} />;
+    },
+  }),
+  screens: {
+    Main: { screen: Main, options: { title: 'Explore' } },
+    MyTrips: { screen: MyTripsScreen, options: { title: 'My Trips' } },
+    UserPreferences: { screen: UserPreferences, options: { title: 'Profile' } },
+  },
+});
+
+const AppStack = createStackNavigator({
   screenOptions: { headerShown: false },
   screens: {
-    MainHome: { screen: Main },
+    Tabs: { screen: Tabs },
     RideDetails: { screen: RideDetails },
     LiftRequestDetails: { screen: LiftRequestDetails },
   },
 });
 
-const Tabs = createBottomTabNavigator({
-  screenOptions: ({ route }) => ({
-    headerShown: false,
-    tabBarIcon: ({ color, size }) => {
-      const name = 
-        route.name === 'Main' 
-        ? 'home' 
-        : route.name === 'Timetable'
-        ? 'calendar'
-        : route.name === 'AppSettings'
-        ? 'settings'
-        : 'person';
-      return <Ionicons name={name as any} size={size} color={color} />;
-    },
-  }),
-  screens: {
-    Main: { screen: MainStack },
-    Timetable: { screen: Timetable },
-    AppSettings: { screen: AppSettings, options: { title: 'Settings'} },
-    UserPreferences: { screen: UserPreferences, options: { title: 'Profile' } },
-  },
-});
-const AppNavigation = createStaticNavigation(Tabs);
+const AppNavigation = createStaticNavigation(AppStack);
 
 type RootNavigatorParamList = StaticParamList<typeof AuthStack>;
 

@@ -74,9 +74,7 @@ export type RideRequest = BaseDoc & {
   passengerName?: string | null;
 
   status: RideRequestStatus;
-
   pickup: GeoLite;
-
   seatsRequested: number;
   message?: string;
 };

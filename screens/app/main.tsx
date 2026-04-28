@@ -200,7 +200,7 @@ const Main = () => {
   const data = mode === 'RIDES' ? rides : liftRequests;
 
   return (
-    <SafeAreaView style={{ flex: 1 }}>
+    <SafeAreaView style={{ flex: 1 , paddingBottom: -33}}>
       <View style={styles.container}>
         <Text style={styles.title}>
           {mode === 'RIDES' ? 'Available rides' : 'Passengers looking for a ride'}

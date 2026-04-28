@@ -8,13 +8,9 @@ import {
   Pressable,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import {
-  doc,
-  getDoc,
-} from 'firebase/firestore';
-
+import { doc, getDoc, collection, onSnapshot, query, where, orderBy, limit } from 'firebase/firestore';
 import { db, auth } from '../../utils/firebase';
-import { createRideRequest } from '../../utils/firestoreWrites';
+import { createRideRequest, cancelRide, acceptRideRequest, rejectRideRequest } from '../../utils/firestoreWrites';
 import { useNavigation } from '@react-navigation/native';
 
 type Props = {
@@ -74,6 +70,11 @@ export default function RideDetails({ route }: Props) {
   const [ride, setRide] = useState<RideDetailsData | null>(null);
   const [loading, setLoading] = useState(true);
   const [joining, setJoining] = useState(false);
+  const [requests, setRequests] = useState<any[]>([]);
+  const currentUid = auth.currentUser?.uid;
+  const isOwner = currentUid === ride?.driverId;
+  const [myRequestStatus, setMyRequestStatus] = useState<string | null>(null);
+  const alreadyRequestedOrJoined = myRequestStatus === 'pending' || myRequestStatus === 'accepted';
 
   useEffect(() => {
     const loadRide = async () => {
@@ -99,6 +100,43 @@ export default function RideDetails({ route }: Props) {
 
     loadRide();
   }, [rideId, navigation]);
+
+  useEffect(() => {
+    const user = auth.currentUser;
+    if (!user || !rideId) return;
+
+    const q = query(
+      collection(db, 'rideRequests'),
+      where('rideId', '==', rideId),
+      where('passengerId', '==', user.uid),
+      where('status', 'in', ['pending', 'accepted']),
+      limit(1)
+    );
+
+    const unsub = onSnapshot(q, (snapshot) => {
+      if (snapshot.empty) {
+        setMyRequestStatus(null);
+      } else {
+        setMyRequestStatus((snapshot.docs[0].data() as any).status);
+      }
+    });
+
+    return unsub;
+  }, [rideId]);
+
+  useEffect(() => {
+    const q = query(
+      collection(db, 'rideRequests'),
+      where('rideId', '==', rideId),
+      orderBy('createdAt', 'desc')
+    );
+
+    const unsub = onSnapshot(q, (snapshot) => {
+      setRequests(snapshot.docs.map((d) => ({ id: d.id, ...d.data() })));
+    });
+
+    return unsub;
+  }, [rideId]);
 
   const onRequestToJoin = async () => {
     if (!ride) return;
@@ -142,6 +180,42 @@ export default function RideDetails({ route }: Props) {
       Alert.alert('Failed to send request', e?.message ?? 'Unknown error');
     } finally {
       setJoining(false);
+    }
+  };
+
+  const onCancelRide = async () => {
+    if (!ride) return;
+
+    try {
+      await cancelRide(ride.id);
+      Alert.alert('Cancelled', 'Ride cancelled.');
+      navigation.goBack();
+    } catch (e: any) {
+      Alert.alert('Failed to cancel ride', e?.message ?? 'Unknown error');
+    }
+  };
+
+  const onAcceptRequest = async (request: any) => {
+    if (!ride) return;
+
+    try {
+      await acceptRideRequest({
+        requestId: request.id,
+        rideId: ride.id,
+        seatsRequested: request.seatsRequested,
+      });
+
+      Alert.alert('Request accepted');
+    } catch (e: any) {
+      Alert.alert('Failed to accept request', e?.message ?? 'Unknown error');
+    }
+  };
+
+  const onRejectRequest = async (request: any) => {
+    try {
+      await rejectRideRequest(request.id);
+    } catch (e: any) {
+      Alert.alert('Failed to reject request', e?.message ?? 'Unknown error');
     }
   };
 
@@ -201,18 +275,73 @@ export default function RideDetails({ route }: Props) {
           ) : null}
         </View>
 
-        <Pressable
-          onPress={onRequestToJoin}
-          disabled={joining || ride.status !== 'open' || ride.seatsAvailable < 1}
-          style={[
-            styles.primaryButton,
-            (joining || ride.status !== 'open' || ride.seatsAvailable < 1) && { opacity: 0.6 },
-          ]}
-        >
-          <Text style={styles.primaryButtonText}>
-            {joining ? 'Sending request...' : 'Request to Join'}
-          </Text>
-        </Pressable>
+        {isOwner ? (
+          <>
+            <Text style={styles.sectionTitle}>Manage Ride</Text>
+
+            {ride.status === 'open' || ride.status === 'full' ? (
+              <Pressable onPress={onCancelRide} style={styles.deleteButton}>
+                <Text style={styles.deleteText}>Cancel Ride</Text>
+              </Pressable>
+            ) : null}
+
+            <Text style={styles.sectionTitle}>Passenger Requests</Text>
+
+            {requests.length === 0 ? (
+              <Text style={styles.helperText}>No passenger requests yet.</Text>
+            ) : (
+              requests.map((request) => (
+                <View key={request.id} style={styles.offerCard}>
+                  <Text style={styles.value}>
+                    Passenger: {request.passengerName ?? 'Unknown passenger'}
+                  </Text>
+
+                  <Text style={styles.value}>Status: {request.status}</Text>
+                  <Text style={styles.value}>Seats: {request.seatsRequested}</Text>
+
+                  {request.status === 'pending' ? (
+                    <View style={styles.actionRow}>
+                      <Pressable onPress={() => onAcceptRequest(request)} style={styles.acceptButton}>
+                        <Text style={styles.acceptText}>Accept</Text>
+                      </Pressable>
+
+                      <Pressable onPress={() => onRejectRequest(request)} style={styles.rejectButton}>
+                        <Text style={styles.rejectText}>Reject</Text>
+                      </Pressable>
+                    </View>
+                  ) : null}
+                </View>
+              ))
+            )}
+          </>
+        ) : (
+              <Pressable
+                onPress={onRequestToJoin}
+                disabled={
+                  joining ||
+                  ride.status !== 'open' ||
+                  ride.seatsAvailable < 1 ||
+                  alreadyRequestedOrJoined
+                }
+                style={[
+                  styles.primaryButton,
+                  (joining ||
+                    ride.status !== 'open' ||
+                    ride.seatsAvailable < 1 ||
+                    alreadyRequestedOrJoined) && { opacity: 0.6 },
+                ]}
+              >
+                <Text style={styles.primaryButtonText}>
+                  {joining
+                    ? 'Sending request...'
+                    : myRequestStatus === 'pending'
+                    ? 'Request Pending'
+                    : myRequestStatus === 'accepted'
+                    ? 'Already Joined'
+                    : 'Request to Join'}
+                </Text>
+              </Pressable>
+            )}
 
         <Pressable onPress={() => navigation.goBack()} style={styles.secondaryButton}>
           <Text>Back</Text>
@@ -276,5 +405,59 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     alignItems: 'center',
     backgroundColor: '#F8FAFC',
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#111827',
+    marginTop: 8,
+  },
+  helperText: {
+    color: '#6B7280',
+  },
+  offerCard: {
+    backgroundColor: '#F8FAFC',
+    borderRadius: 14,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    gap: 6,
+  },
+  actionRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 8,
+  },
+  acceptButton: {
+    flex: 1,
+    backgroundColor: '#DCFCE7',
+    padding: 12,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  acceptText: {
+    color: '#15803D',
+    fontWeight: '700',
+  },
+  rejectButton: {
+    flex: 1,
+    backgroundColor: '#FEE2E2',
+    padding: 12,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  rejectText: {
+    color: '#DC2626',
+    fontWeight: '700',
+  },
+  deleteButton: {
+    backgroundColor: '#FEE2E2',
+    borderRadius: 14,
+    paddingVertical: 14,
+    alignItems: 'center',
+  },
+  deleteText: {
+    color: '#DC2626',
+    fontWeight: '700',
   },
 });

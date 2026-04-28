@@ -8,9 +8,9 @@ import {
   Pressable,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, collection, onSnapshot, query, where, orderBy } from 'firebase/firestore';
 import { useNavigation } from '@react-navigation/native';
-import { createLiftOffer } from '../../utils/firestoreWrites';
+import { createLiftOffer, cancelLiftRequest, acceptLiftOffer, rejectLiftOffer } from '../../utils/firestoreWrites';
 import { db, auth } from '../../utils/firebase';
 
 type Props = {
@@ -70,6 +70,9 @@ export default function LiftRequestDetails({ route }: Props) {
   const [request, setRequest] = useState<LiftRequestDetailsData | null>(null);
   const [loading, setLoading] = useState(true);
   const [creatingRide, setCreatingRide] = useState(false);
+  const currentUid = auth.currentUser?.uid;
+  const isOwner = currentUid === request?.passengerId;
+  const [offers, setOffers] = useState<any[]>([]);
 
   useEffect(() => {
     const loadLiftRequest = async () => {
@@ -97,6 +100,20 @@ export default function LiftRequestDetails({ route }: Props) {
 
     loadLiftRequest();
   }, [liftRequestId, navigation]);
+
+  useEffect(() => {
+  const q = query(
+    collection(db, 'liftOffers'),
+    where('liftRequestId', '==', liftRequestId),
+    orderBy('createdAt', 'desc')
+  );
+
+  const unsub = onSnapshot(q, (snapshot) => {
+    setOffers(snapshot.docs.map((d) => ({ id: d.id, ...d.data() })));
+  });
+
+  return unsub;
+}, [liftRequestId]);
 
   const onSendOffer = async () => {
     if (!request) return;
@@ -152,6 +169,41 @@ export default function LiftRequestDetails({ route }: Props) {
     }
   };
 
+  const onCancelLiftRequest = async () => {
+  if (!request) return;
+
+  try {
+    await cancelLiftRequest(request.id);
+    Alert.alert('Cancelled', 'Lift request cancelled.');
+    navigation.goBack();
+  } catch (e: any) {
+    Alert.alert('Failed to cancel', e?.message ?? 'Unknown error');
+  }
+};
+
+  const onAcceptOffer = async (offer: any) => {
+    if (!request) return;
+
+    try {
+      await acceptLiftOffer({
+        offerId: offer.id,
+        liftRequestId: request.id,
+      });
+
+      Alert.alert('Offer accepted');
+    } catch (e: any) {
+      Alert.alert('Failed to accept offer', e?.message ?? 'Unknown error');
+    }
+  };
+
+  const onRejectOffer = async (offer: any) => {
+    try {
+      await rejectLiftOffer(offer.id);
+    } catch (e: any) {
+      Alert.alert('Failed to reject offer', e?.message ?? 'Unknown error');
+    }
+  };
+
   if (loading) {
     return (
       <SafeAreaView style={styles.centered}>
@@ -173,6 +225,61 @@ export default function LiftRequestDetails({ route }: Props) {
     <SafeAreaView style={styles.safe}>
       <View style={styles.container}>
         <Text style={styles.title}>Lift Request Details</Text>
+          {isOwner ? (
+            <>
+              <Text style={styles.sectionTitle}>Manage Lift Request</Text>
+
+              {request.status === 'open' ? (
+                <Pressable onPress={onCancelLiftRequest} style={styles.deleteButton}>
+                  <Text style={styles.deleteText}>Cancel Lift Request</Text>
+                </Pressable>
+              ) : null}
+
+              <Text style={styles.sectionTitle}>Offers Received</Text>
+
+              {offers.length === 0 ? (
+                <Text style={styles.helperText}>No offers yet.</Text>
+              ) : (
+                offers.map((offer) => (
+                  <View key={offer.id} style={styles.offerCard}>
+                    <Text style={styles.value}>
+                      Driver: {offer.driverName ?? 'Unknown driver'}
+                    </Text>
+
+                    <Text style={styles.value}>Status: {offer.status}</Text>
+                    <Text style={styles.value}>Seats offered: {offer.seatsOffered}</Text>
+
+                    {offer.message ? <Text style={styles.value}>{offer.message}</Text> : null}
+
+                    {offer.status === 'pending' && request.status === 'open' ? (
+                      <View style={styles.actionRow}>
+                        <Pressable onPress={() => onAcceptOffer(offer)} style={styles.acceptButton}>
+                          <Text style={styles.acceptText}>Accept</Text>
+                        </Pressable>
+
+                        <Pressable onPress={() => onRejectOffer(offer)} style={styles.rejectButton}>
+                          <Text style={styles.rejectText}>Reject</Text>
+                        </Pressable>
+                      </View>
+                    ) : null}
+                  </View>
+                ))
+              )}
+            </>
+          ) : (
+            <Pressable
+              onPress={onSendOffer}
+              disabled={creatingRide || request.status !== 'open'}
+              style={[
+                styles.primaryButton,
+                (creatingRide || request.status !== 'open') && { opacity: 0.6 },
+              ]}
+            >
+              <Text style={styles.primaryButtonText}>
+                {creatingRide ? 'Sending offer...' : 'Send Offer'}
+              </Text>
+            </Pressable>
+          )}
 
         <View style={styles.card}>
           <Text style={styles.sectionLabel}>Passenger name</Text>
@@ -208,19 +315,6 @@ export default function LiftRequestDetails({ route }: Props) {
             </>
           ) : null}
         </View>
-
-        <Pressable
-          onPress={onSendOffer}
-          disabled={creatingRide || request.status !== 'open'}
-          style={[
-            styles.primaryButton,
-            (creatingRide || request.status !== 'open') && { opacity: 0.6 },
-          ]}
-        >
-          <Text style={styles.primaryButtonText}>
-            {creatingRide ? 'Sending offer...' : 'Send Offer'}
-          </Text>
-        </Pressable>
 
         <Pressable onPress={() => navigation.goBack()} style={styles.secondaryButton}>
           <Text>Back</Text>
@@ -284,5 +378,59 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     alignItems: 'center',
     backgroundColor: '#F8FAFC',
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#111827',
+    marginTop: 8,
+  },
+  helperText: {
+    color: '#6B7280',
+  },
+  offerCard: {
+    backgroundColor: '#F8FAFC',
+    borderRadius: 14,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    gap: 6,
+  },
+  actionRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 8,
+  },
+  acceptButton: {
+    flex: 1,
+    backgroundColor: '#DCFCE7',
+    padding: 12,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  acceptText: {
+    color: '#15803D',
+    fontWeight: '700',
+  },
+  rejectButton: {
+    flex: 1,
+    backgroundColor: '#FEE2E2',
+    padding: 12,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  rejectText: {
+    color: '#DC2626',
+    fontWeight: '700',
+  },
+  deleteButton: {
+    backgroundColor: '#FEE2E2',
+    borderRadius: 14,
+    paddingVertical: 14,
+    alignItems: 'center',
+  },
+  deleteText: {
+    color: '#DC2626',
+    fontWeight: '700',
   },
 });
