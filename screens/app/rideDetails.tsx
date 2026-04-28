@@ -12,6 +12,7 @@ import { doc, getDoc, collection, onSnapshot, query, where, orderBy, limit } fro
 import { db, auth } from '../../utils/firebase';
 import { createRideRequest, cancelRide, acceptRideRequest, rejectRideRequest } from '../../utils/firestoreWrites';
 import { useNavigation } from '@react-navigation/native';
+import { ScrollView } from 'react-native';
 
 type Props = {
   route: {
@@ -238,8 +239,8 @@ export default function RideDetails({ route }: Props) {
 
   return (
     <SafeAreaView style={styles.safe}>
-      <View style={styles.container}>
-        <Text style={styles.title}>Ride Details</Text>
+      <ScrollView contentContainerStyle={styles.container}>
+          <Text style={styles.title}>Ride Details</Text>
 
         <View style={styles.card}>
           <Text style={styles.sectionLabel}>Driver name</Text>
@@ -346,7 +347,7 @@ export default function RideDetails({ route }: Props) {
         <Pressable onPress={() => navigation.goBack()} style={styles.secondaryButton}>
           <Text>Back</Text>
         </Pressable>
-      </View>
+    </ScrollView>
     </SafeAreaView>
   );
 }
@@ -356,9 +357,9 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   container: {
-    flex: 1,
     padding: 16,
     gap: 14,
+    paddingBottom: 40,
   },
   centered: {
     flex: 1,
