@@ -13,6 +13,7 @@ import { db, auth } from '../../utils/firebase';
 import { createRideRequest, cancelRide, acceptRideRequest, rejectRideRequest } from '../../utils/firestoreWrites';
 import { useNavigation } from '@react-navigation/native';
 import { ScrollView } from 'react-native';
+import MapView, { Marker } from 'react-native-maps';
 
 type Props = {
   route: {
@@ -26,6 +27,7 @@ type Props = {
 type RideDetailsData = {
   id: string;
   driverId: string;
+  driverName: string;
   start: {
     geohash: string;
     lat: number;
@@ -76,6 +78,9 @@ export default function RideDetails({ route }: Props) {
   const isOwner = currentUid === ride?.driverId;
   const [myRequestStatus, setMyRequestStatus] = useState<string | null>(null);
   const alreadyRequestedOrJoined = myRequestStatus === 'pending' || myRequestStatus === 'accepted';
+  const visiblePassengerRequests = requests.filter((request) =>
+    ['pending', 'accepted'].includes(request.status)
+  );
 
   useEffect(() => {
     const loadRide = async () => {
@@ -139,6 +144,34 @@ export default function RideDetails({ route }: Props) {
     return unsub;
   }, [rideId]);
 
+  const getDefaultPickup = async () => {
+  const user = auth.currentUser;
+  if (!user) throw new Error('Not authenticated');
+
+  const snap = await getDoc(doc(db, 'users', user.uid));
+  const data = snap.exists() ? (snap.data() as any) : null;
+
+  const locations = Array.isArray(data?.preferredLocations)
+    ? data.preferredLocations
+    : [];
+
+  const defaultId = data?.defaultPreferredLocationId;
+
+  const selected =
+    locations.find((loc: any) => loc.id === defaultId) ?? locations[0];
+
+  if (!selected) {
+    throw new Error('Please add a preferred pickup location in your profile first.');
+  }
+
+  return {
+    geohash: selected.geohash,
+    lat: selected.lat,
+    lng: selected.lng,
+    label: selected.publicLabel ?? selected.label ?? 'Pickup area',
+  };
+};
+
   const onRequestToJoin = async () => {
     if (!ride) return;
 
@@ -163,14 +196,16 @@ export default function RideDetails({ route }: Props) {
       return;
     }
 
+    const pickup = await getDefaultPickup();
+
     try {
       setJoining(true);
-
+      
       await createRideRequest({
         rideId: ride.id,
         driverId: ride.driverId,
         driverName: ride.driverName,
-        pickup: ride.start,
+        pickup,
         seatsRequested: 1,
         message: '',
       });
@@ -276,6 +311,57 @@ export default function RideDetails({ route }: Props) {
           ) : null}
         </View>
 
+        {isOwner && visiblePassengerRequests.length > 0 ? (
+          <View style={styles.mapCard}>
+            <Text style={styles.sectionTitle}>Passenger pickup areas</Text>
+
+            <MapView
+              style={styles.map}
+              initialRegion={{
+                latitude: ride.start.lat,
+                longitude: ride.start.lng,
+                latitudeDelta: 0.08,
+                longitudeDelta: 0.08,
+              }}
+            >
+              <Marker
+                coordinate={{
+                  latitude: ride.start.lat,
+                  longitude: ride.start.lng,
+                }}
+                title="Your start"
+                description={ride.start.label ?? 'Driver start'}
+                pinColor="blue"
+              />
+
+              <Marker
+                coordinate={{
+                  latitude: ride.destination.lat,
+                  longitude: ride.destination.lng,
+                }}
+                title="Destination"
+                description={ride.destination.label ?? 'Destination'}
+                pinColor="green"
+              />
+
+              {visiblePassengerRequests
+                .filter((request) => request.pickup?.lat && request.pickup?.lng)
+                .map((request) => (
+                  <Marker
+                    key={request.id}
+                    coordinate={{
+                      latitude: request.pickup.lat,
+                      longitude: request.pickup.lng,
+                    }}
+                    title={request.passengerName ?? 'Passenger'}
+                    description={`${request.pickup?.label ?? 'Pickup area'} · ${request.status}`}
+                    pinColor={request.status === 'accepted' ? 'purple' : 'red'}
+                  />
+                ))}
+            </MapView>
+          </View>
+        ) : null}
+
         {isOwner ? (
           <>
             <Text style={styles.sectionTitle}>Manage Ride</Text>
@@ -297,8 +383,26 @@ export default function RideDetails({ route }: Props) {
                     Passenger: {request.passengerName ?? 'Unknown passenger'}
                   </Text>
 
+                  <Text style={styles.value}>
+                    Pickup: {request.pickup?.label ?? 'Unknown pickup'}
+                  </Text>
+
+                  {typeof request.pickupDistanceKm === 'number' ? (
+                    <Text style={styles.value}>
+                      Approx. from your start: {request.pickupDistanceKm.toFixed(1)} km
+                    </Text>
+                  ) : null}
+
                   <Text style={styles.value}>Status: {request.status}</Text>
                   <Text style={styles.value}>Seats: {request.seatsRequested}</Text>
+
+                  {request.message ? (
+                    <Text style={styles.value}>Message: {request.message}</Text>
+                  ) : null}
+
+                  {request.status === 'accepted' && request.passengerPhone ? (
+                    <Text style={styles.value}>Contact: {request.passengerPhone}</Text>
+                  ) : null}
 
                   {request.status === 'pending' ? (
                     <View style={styles.actionRow}>
@@ -460,5 +564,18 @@ const styles = StyleSheet.create({
   deleteText: {
     color: '#DC2626',
     fontWeight: '700',
+  },
+  mapCard: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    gap: 10,
+  },
+
+  map: {
+    height: 220,
+    borderRadius: 14,
   },
 });

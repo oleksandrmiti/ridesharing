@@ -40,6 +40,7 @@ export default function UserPreferences() {
 
   const [displayName, setDisplayName] = useState('');
   const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
   const [course, setCourse] = useState('');
   const [year, setYear] = useState('');
   const [ratingAvg, setRatingAvg] = useState<number | null>(null);
@@ -64,6 +65,7 @@ export default function UserPreferences() {
 
           setDisplayName(data.displayName ?? '');
           setEmail(data.email ?? user.email ?? '');
+          setPhone(data.phone ?? '');
           setCourse(data.course ?? '');
           setYear(data.year?.toString?.() ?? '');
           setRatingAvg(typeof data.ratingAvg === 'number' ? data.ratingAvg : 5);
@@ -160,6 +162,11 @@ const onSaveProfile = async () => {
     return;
   }
 
+  if (!phone.trim()) {
+    Alert.alert('Missing phone', 'Please enter your phone number.');
+    return;
+  }
+
   if (!course.trim()) {
     Alert.alert('Missing course', 'Please enter your course.');
     return;
@@ -177,6 +184,7 @@ const onSaveProfile = async () => {
       displayName: displayName.trim(),
       course: course.trim(),
       year: yearNum,
+      phone: phone.trim(),
       updatedAt: serverTimestamp(),
       });
 
@@ -304,6 +312,15 @@ const onSaveProfile = async () => {
             onChangeText={setDisplayName}
             placeholder="Your name"
             style={styles.input}
+          />
+
+          <Text style={styles.label}>Phone</Text>
+          <TextInput
+            value={phone}
+            onChangeText={setPhone}
+            placeholder="Your phone number"
+            style={styles.input}
+            keyboardType="phone-pad"
           />
 
           <Text style={styles.label}>Course</Text>

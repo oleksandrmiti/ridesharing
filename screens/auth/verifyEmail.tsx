@@ -40,7 +40,7 @@ export default function VerifyEmailScreen() {
 
       await auth.currentUser?.getIdToken(true);
       if (auth.currentUser?.emailVerified) {
-        setMsg('Email verified ✅ You can continue.');
+        setMsg('Email verified. You can continue.');
       } else {
         setMsg('Still not verified. Open the link in your email, then tap again.');
       }

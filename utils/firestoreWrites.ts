@@ -21,6 +21,23 @@ export function toGeoLite(params: { lat: number; lng: number; label?: string }):
   };
 }
 
+function distanceKm(
+  a: { lat: number; lng: number },
+  b: { lat: number; lng: number }
+) {
+  const R = 6371;
+  const dLat = ((b.lat - a.lat) * Math.PI) / 180;
+  const dLng = ((b.lng - a.lng) * Math.PI) / 180;
+  const lat1 = (a.lat * Math.PI) / 180;
+  const lat2 = (b.lat * Math.PI) / 180;
+
+  const x =
+    Math.sin(dLat / 2) ** 2 +
+    Math.sin(dLng / 2) ** 2 * Math.cos(lat1) * Math.cos(lat2);
+
+  return 2 * R * Math.atan2(Math.sqrt(x), Math.sqrt(1 - x));
+}
+
 export function dateKeyFromDate(d: Date): string {
   // YYYY-MM-DD in local time
   const y = d.getFullYear();
@@ -266,6 +283,7 @@ export async function createRideRequest(params: {
   driverId: string;
   driverName?: string | null;
   pickup: GeoLite;
+  passengerPhone?: string | null;
   seatsRequested: number;
   message?: string;
 }) {
@@ -286,19 +304,35 @@ export async function createRideRequest(params: {
     throw new Error('You have already requested or joined this ride.');
   }
 
+  const rideSnap = await getDoc(doc(db, 'rides', params.rideId));
+  if (!rideSnap.exists()) throw new Error('Ride not found');
+
+  const rideData = rideSnap.data() as any;
+
+  const pickupDistanceKm =
+    rideData?.start && params.pickup
+      ? distanceKm(rideData.start, params.pickup)
+      : null;
+
   const userSnap = await getDoc(doc(db, 'users', user.uid));
   const userData = userSnap.exists() ? (userSnap.data() as any) : null;
+
   const passengerName = userData?.displayName?.trim() || 'Unknown passenger';
-  
+  const passengerPhone = params.passengerPhone ?? userData?.phone?.trim?.() ?? null;
+
   const payload: RideRequestCreateInput = {
     rideId: params.rideId,
     driverId: params.driverId,
     driverName: params.driverName ?? null,
+
     passengerId: user.uid,
     passengerName,
+    passengerPhone,
 
     status: 'pending',
     pickup: params.pickup,
+    pickupDistanceKm,
+
     seatsRequested: params.seatsRequested,
 
     createdAt: serverTimestamp(),
@@ -379,7 +413,7 @@ export async function createLiftOffer(params: {
     driverId: user.uid,
     driverName,
     passengerId: params.passengerId,
-    passengerName: params.passengerName?.trim() || undefined,
+    passengerName: params.passengerName?.trim() || null,
     start: params.start,
     destination: params.destination,
     arrivalWindow: {
