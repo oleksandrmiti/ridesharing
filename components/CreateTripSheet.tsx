@@ -201,11 +201,6 @@ export default function CreateTripSheet({
     setPickerValue(selected);
   };
 
-  const openLocationPicker = (target: 'from' | 'to') => {
-    setLocationTarget(target);
-    setLocationSelectOpen(true);
-  };
-
   const onFlipRoute = () => {
     setDirection((current) =>
       current === 'TO_CAMPUS' ? 'FROM_CAMPUS' : 'TO_CAMPUS'
@@ -402,25 +397,34 @@ export default function CreateTripSheet({
         <Text>Cancel</Text>
       </Pressable>
 
-      <Modal visible={pickerMode !== null} transparent animationType="fade">
-        <View style={pickerStyles.backdrop}>
-          <View style={pickerStyles.card}>
-            <Text style={pickerStyles.title}>
-              {pickerMode === 'date'
-                ? 'Select date'
-                : pickerMode === 'earliest'
-                ? 'Select earliest time to arrive'
-                : 'Select latest time to arrive'}
-            </Text>
+      {Platform.OS === 'android' && pickerMode !== null ? (
+        <DateTimePicker
+          value={pickerValue}
+          mode={pickerMode === 'date' ? 'date' : 'time'}
+          display="default"
+          onChange={onChangePicker}
+        />
+      ) : null}
 
-            <DateTimePicker
-              value={pickerValue}
-              mode={pickerMode === 'date' ? 'date' : 'time'}
-              display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-              onChange={onChangePicker}
-            />
+      {Platform.OS === 'ios' ? (
+        <Modal visible={pickerMode !== null} transparent animationType="fade">
+          <View style={pickerStyles.backdrop}>
+            <View style={pickerStyles.card}>
+              <Text style={pickerStyles.title}>
+                {pickerMode === 'date'
+                  ? 'Select date'
+                  : pickerMode === 'earliest'
+                  ? 'Select earliest time to arrive'
+                  : 'Select latest time to arrive'}
+              </Text>
 
-            {Platform.OS === 'ios' && (
+              <DateTimePicker
+                value={pickerValue}
+                mode={pickerMode === 'date' ? 'date' : 'time'}
+                display="spinner"
+                onChange={onChangePicker}
+              />
+
               <Pressable
                 onPress={() => {
                   applyPickerValue(pickerValue);
@@ -430,10 +434,10 @@ export default function CreateTripSheet({
               >
                 <Text style={pickerStyles.doneText}>Done</Text>
               </Pressable>
-            )}
+            </View>
           </View>
-        </View>
-      </Modal>
+        </Modal>
+      ) : null}
 
      <LocationSelectModal
         visible={locationSelectOpen}
